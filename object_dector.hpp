@@ -9,6 +9,7 @@
 #define PURE_POST_PROCESSING 1
 #define DEMO_MODE	0
 
+#define SIMULATE (1)
 #define INPUT_RAW_PIXEL	(416)
 #define INPUT_COL_PIXEL	(416)
 #define INPUT_SIZE	(INPUT_RAW_PIXEL*INPUT_COL_PIXEL)
@@ -23,30 +24,28 @@
 #define PREDICT_CUBE_DEPTH	(30)
 #define PREDICT_NUM_OF_BOX  (2)
 #define PREDICT_NUM_OF_GRIDS	(PREDICT_CUBE_WIDTH * PREDICT_CUBE_HEIGHT)
-
+#define BOX_THRESH	(0.2)
+#define NRM_THRESH	(0.4)
 typedef struct the_class
 {
 	unsigned int index;
 	float prob;
-	float *class_prob [CLASS_CNT];
+	float *class_prob;
 }THE_CLASS;
 
 typedef struct the_box
 {
-	unsigned float x;
-	unsigned float y;
-	unsigned float w;
-	unsigned float h;
-	unsigned float con;
+	float x;
+	float y;
+	float w;
+	float h;
+	float con;
 	float score;
 	THE_CLASS *candidate;
 
 }THE_BOX;
 
-typedef struct hash_chain
-{
-	list<THE_BOX> map[CLASS_CNT];
-}HASH_CHAIN;
+
 
 typedef struct raw_loc_layout
 {

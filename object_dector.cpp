@@ -1,4 +1,8 @@
-
+#if (SIMULATE)
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#else
 #ifdef __SDSCC__
 #undef __ARM_NEON__
 #undef __ARM_NEON
@@ -11,12 +15,18 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#endif
+#endif  //__SDSCC__
+#endif//SIMULATE
 
 #include "object_dector.hpp"
 #include "object_int.h"
 #include <errno.h>
-
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdio.h>
+#include "hash_chain.hpp"
 
 using namespace cv;
 using namespace std;
@@ -67,15 +77,23 @@ static int post_process(THE_PREDICTED_DATA *predict_data, list<THE_BOX> &box_lis
 	int nr;
 #endif
 	int g,b,cl;
+	hash_chain *map = new hash_chain(1,CLASS_CNT);
 
 
 #if (PURE_POST_PROCESSING)
-	int fd = open("/media/card/prediction_cube.bin", O_RDONLY, S_IRUSR | S_IWUSR);
-	unsigned char *raw_data = new char[PREDICT_CUBE_SIZE];
-	predict_data->data = raw_data;
+
+	unsigned char *raw_data = new unsigned char[PREDICT_CUBE_SIZE];
+	predict_data->data = (RAW_DATA_LAYOUT *)raw_data;
 	predict_data->w = PREDICT_CUBE_WIDTH;
 	predict_data->h = PREDICT_CUBE_HEIGHT;
 	predict_data->d = PREDICT_CUBE_DEPTH;
+
+#if SIMULATE
+	fd = open("../src/resource/prediction_cube.bin", O_RDONLY, S_IRUSR | S_IWUSR);
+#else
+	fd = open("/media/card/prediction_cube.bin", O_RDONLY, S_IRUSR | S_IWUSR);
+#endif
+
 	nr = read(fd,predict_data->data, PREDICT_CUBE_SIZE);
 	if (nr == -1)
 		printf("[OBJ_DECTOR] predict_cube read error: %s\n", strerror(errno));
@@ -87,6 +105,7 @@ static int post_process(THE_PREDICTED_DATA *predict_data, list<THE_BOX> &box_lis
 		int c = g % PREDICT_CUBE_HEIGHT;
 		THE_CLASS *the_cdc = new THE_CLASS();
 		float *class_prob = new float[CLASS_CNT];
+
 		for(cl = 0; cl < CLASS_CNT; cl++)
 		{
 			float prob;
@@ -118,10 +137,14 @@ static int post_process(THE_PREDICTED_DATA *predict_data, list<THE_BOX> &box_lis
 			the_box->h = predict_data->data->loc[r][c][b].h;
 			the_box->con = predict_data->data->con[r][c][b];
 			the_box->score = the_box->con * the_box->candidate->prob;
+
+			if(the_box->score > BOX_THRESH)
+				map->insert(the_box);
 		}
+
 	}
 
-
+	map->extract(box_list);
 	return 0;
 }
 
@@ -161,9 +184,12 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
 	Mat image;
 	Mat rgb_image;
 	Mat dst(height, width, CV_8UC2, frm_data_out, stride);
-
+#if (SIMULATE)
+	image = imread("../src/resource/dog416.jpg",CV_LOAD_IMAGE_COLOR);
+#else
 	image = imread("/media/card/dog416.jpg",CV_LOAD_IMAGE_COLOR);
-    if(! image.data )
+#endif
+	if(! image.data )
     {
            printf("[OBJ_DECTOR] Could not open or find the image\n");
            return -1;
