@@ -20,23 +20,23 @@ static float overlap(float x1, float w1, float x2, float w2)
     return right - left;
 }
 
-static float box_intersection(THE_BOX *a, THE_BOX *b)
+static float box_intersection(THE_BOX &a, THE_BOX &b)
 {
-    float w = overlap(a->x, a->w, b->x, b->w);
-    float h = overlap(a->y, a->h, b->y, b->h);
+    float w = overlap(a.x, a.w, b.x, b.w);
+    float h = overlap(a.y, a.h, b.y, b.h);
     if(w < 0 || h < 0) return 0;
     float area = w*h;
     return area;
 }
 
-static float box_union(THE_BOX *a, THE_BOX *b)
+static float box_union(THE_BOX &a, THE_BOX &b)
 {
     float i = box_intersection(a, b);
-    float u = a->w*a->h + b->w*b->h - i;
+    float u = a.w*a.h + b.w*b.h - i;
     return u;
 }
 
-float box_iou(THE_BOX *a, THE_BOX *b)
+float box_iou(THE_BOX &a, THE_BOX &b)
 {
     return box_intersection(a, b)/box_union(a, b);
 }
@@ -61,13 +61,7 @@ void hash_chain::insert(THE_BOX *the_box)
 
 	for(list<THE_BOX>::iterator it = class_list->begin(); it != class_list->end(); ++it)
 	{
-		THE_BOX tmp;
-		tmp.x = it->x;
-		tmp.y = it->y;
-		tmp.h = it->h;
-		tmp.w = it->w;
-
-		if(box_iou(the_box, &tmp) > NRM_THRESH)
+		if(box_iou(*the_box, *it) > NRM_THRESH)
 		{
 			if (the_box->score > it->score)
 			{
