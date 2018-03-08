@@ -10,11 +10,13 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include "object_int.h"
 using namespace cv;
 using namespace std;
 
 int main() {
 	cout << "!!!Hello World!!!" << endl; // prints !!!Hello World!!!
+	object_detection(NULL,NULL,NULL,NULL,NULL);
 	return 0;
 }
 

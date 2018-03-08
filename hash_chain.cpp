@@ -9,6 +9,8 @@
 using namespace std;
 
 
+
+
 static float overlap(float x1, float w1, float x2, float w2)
 {
     float l1 = x1 - w1/2;
@@ -58,7 +60,7 @@ void hash_chain::insert(THE_BOX *the_box)
 	int index = the_box->candidate->index;
 	list <THE_BOX> *class_list;
 	class_list = &(this->mgr.hash_table[index]);
-
+#if 0
 	for(list<THE_BOX>::iterator it = class_list->begin(); it != class_list->end(); ++it)
 	{
 		if(box_iou(*the_box, *it) > NRM_THRESH)
@@ -72,6 +74,7 @@ void hash_chain::insert(THE_BOX *the_box)
 				return; /*the better candidate is existed, return directly*/
 		}
 	}
+#endif
 	class_list->push_front(*the_box);
 }
 
@@ -88,7 +91,11 @@ void hash_chain::extract(list<THE_BOX> &out_list)
 			 while (!class_ptr->empty())
 			  {
 				 THE_BOX &b = class_ptr->front();
-				 printf("prob=%f, class=%d, x=%f,y=%f,w=%f,h=%f\n", b.score, b.candidate->index, b.x, b.y, b.w, b.h);
+				 printf("prob=%f, class=%s(%d), x=%f,y=%f,w=%f,h=%f\n",
+						 b.score,
+						 this->class_names[b.candidate->index],
+						 b.candidate->index,
+						 b.x, b.y, b.w, b.h);
 				 out_list.push_front(b);
 				 class_ptr->pop_front();
 			  }

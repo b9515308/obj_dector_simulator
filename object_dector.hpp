@@ -26,6 +26,9 @@
 #define PREDICT_NUM_OF_GRIDS	(PREDICT_CUBE_WIDTH * PREDICT_CUBE_HEIGHT)
 #define BOX_THRESH	(0.2)
 #define NRM_THRESH	(0.4)
+#define PREDICT_CUBE_CENTER_W_SCALE (1)
+#define PREDICT_CUBE_CENTER_H_SCALE (1)
+#define PREDICT_CUBE_SIZE_SQUARE (1)
 typedef struct the_class
 {
 	unsigned int index;

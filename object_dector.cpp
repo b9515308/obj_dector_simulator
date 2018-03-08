@@ -27,7 +27,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include "hash_chain.hpp"
-
+#include <cmath>
 using namespace cv;
 using namespace std;
 
@@ -70,6 +70,16 @@ static THE_PREDICTED_DATA *hw_cnn_network(INFER_CONTROLLER *infer)
 	return data;
 }
 
+static void dump_the_box(THE_BOX &b)
+{
+	printf("[OBJ DECTOR] score=%f, x=%f, y=%f, w=%f, h=%f\n",
+			b.score,
+			b.x,
+			b.y,
+			b.w,
+			b.h);
+}
+
 static int post_process(THE_PREDICTED_DATA *predict_data, list<THE_BOX> &box_list)
 {
 #if (PURE_POST_PROCESSING)
@@ -102,7 +112,7 @@ static int post_process(THE_PREDICTED_DATA *predict_data, list<THE_BOX> &box_lis
 	for (g = 0; g < PREDICT_NUM_OF_GRIDS; g++)
 	{
 		int r = g / PREDICT_CUBE_WIDTH;
-		int c = g % PREDICT_CUBE_HEIGHT;
+		int c = g % PREDICT_CUBE_WIDTH;
 		THE_CLASS *the_cdc = new THE_CLASS();
 		float *class_prob = new float[CLASS_CNT];
 
@@ -131,17 +141,19 @@ static int post_process(THE_PREDICTED_DATA *predict_data, list<THE_BOX> &box_lis
 		{
 			THE_BOX *the_box = new THE_BOX;
 			the_box->candidate = the_cdc;
-			the_box->x = predict_data->data->loc[r][c][b].x;
-			the_box->y = predict_data->data->loc[r][c][b].y;
-			the_box->w = predict_data->data->loc[r][c][b].w;
-			the_box->h = predict_data->data->loc[r][c][b].h;
+			the_box->x = (predict_data->data->loc[r][c][b].x + c)/PREDICT_CUBE_WIDTH * PREDICT_CUBE_CENTER_W_SCALE;
+			the_box->y = (predict_data->data->loc[r][c][b].y + r)/PREDICT_CUBE_WIDTH * PREDICT_CUBE_CENTER_H_SCALE;
+			the_box->w = pow(predict_data->data->loc[r][c][b].w, (PREDICT_CUBE_SIZE_SQUARE ? 2:1)* PREDICT_CUBE_CENTER_W_SCALE);
+			the_box->h = pow(predict_data->data->loc[r][c][b].h, (PREDICT_CUBE_SIZE_SQUARE ? 2:1)* PREDICT_CUBE_CENTER_H_SCALE);
 			the_box->con = predict_data->data->con[r][c][b];
 			the_box->score = the_box->con * the_box->candidate->prob;
 
 			if(the_box->score > BOX_THRESH)
+			{
+				dump_the_box(*the_box);
 				map->insert(the_box);
+			}
 		}
-
 	}
 
 	map->extract(box_list);
@@ -180,10 +192,16 @@ static int draw_the_boxes(unsigned short *frm_data_in, unsigned short *frm_data_
 static int video_mode_processing(unsigned short *frm_data_in, unsigned short *frm_data_out,
 		 int height, int width, int stride)
 {
-	printf("[OBJ_DECTETOR] Pure post processing mode\n...");
+
+
+
+	printf("[OBJ_DECTETOR] Pure post processing mode...\n");
 	Mat image;
 	Mat rgb_image;
 	Mat dst(height, width, CV_8UC2, frm_data_out, stride);
+	THE_PREDICTED_DATA *predict_data = new THE_PREDICTED_DATA();
+	list<THE_BOX> drawing_box_list;
+
 #if (SIMULATE)
 	image = imread("../src/resource/dog416.jpg",CV_LOAD_IMAGE_COLOR);
 #else
@@ -194,9 +212,12 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
            printf("[OBJ_DECTOR] Could not open or find the image\n");
            return -1;
     }
-
+#if (SIMULATE)
+	post_process(predict_data, drawing_box_list);
+#else
 	cvtColor(image, rgb_image, COLOR_BGR2RGB);
 	rgb2yuv422(&rgb_image, &dst);
+#endif
 	return 0;
 }
 
