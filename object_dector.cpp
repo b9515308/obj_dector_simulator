@@ -28,10 +28,16 @@
 #include <stdio.h>
 #include "hash_chain.hpp"
 #include <cmath>
+#include <cassert>
 using namespace cv;
 using namespace std;
 
 static void rgb2yuv422(Mat *src, Mat *dst);
+
+static int draw_the_boxes(unsigned short *frm_data_in, unsigned short *frm_data_out,
+		 int height, int width, int stride, list<THE_BOX> &box_list);
+
+static int draw_the_boxes_sim(Mat &src, list<THE_BOX> &box_list);
 
 INFER_CONTROLLER *alloc_infer_controller(IMAGE_DATA *input, list<THE_WEIGHT> &list)
 {
@@ -72,7 +78,7 @@ static THE_PREDICTED_DATA *hw_cnn_network(INFER_CONTROLLER *infer)
 
 static void dump_the_box(THE_BOX &b)
 {
-	printf("[OBJ DECTOR] score=%f, x=%f, y=%f, w=%f, h=%f\n",
+	dector_printf("score=%f, x=%f, y=%f, w=%f, h=%f\n",
 			b.score,
 			b.x,
 			b.y,
@@ -106,7 +112,7 @@ static int post_process(THE_PREDICTED_DATA *predict_data, list<THE_BOX> &box_lis
 
 	nr = read(fd,predict_data->data, PREDICT_CUBE_SIZE);
 	if (nr == -1)
-		printf("[OBJ_DECTOR] predict_cube read error: %s\n", strerror(errno));
+		dector_printf("predict_cube read error: %s\n", strerror(errno));
 #endif
 
 	for (g = 0; g < PREDICT_NUM_OF_GRIDS; g++)
@@ -165,29 +171,6 @@ static int boxes_projection(list<THE_BOX> &box_list)
 	return 0;
 }
 
-static int draw_the_boxes(unsigned short *frm_data_in, unsigned short *frm_data_out,
-		 int height, int width, int stride, list<THE_BOX> box_list)
-{
-	Mat src(height, width, CV_8UC2, frm_data_in, stride);
-	Mat dst(height, width, CV_8UC2, frm_data_out, stride);
-	// planes
-	std::vector<Mat> planes;
-	// filter
-	split(src, planes);
-	rectangle(planes[0], Point(400,500), Point(600,600),Scalar(175),2,8,0);
-	merge(planes, dst);
-	return 0;
-
-	//printf("[Lucas] %dX%d drawing complete...\n", height, width);
-	/* FIXME Need to check why only output half image. and double rectangle
-	 * rectangle(src, Point(0,0), Point(200,100),Scalar(255),2,8,0);
-	 * src.copyTo(dst);
-	 * */
-}
-
-
-
-
 
 static int video_mode_processing(unsigned short *frm_data_in, unsigned short *frm_data_out,
 		 int height, int width, int stride)
@@ -195,27 +178,31 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
 
 
 
-	printf("[OBJ_DECTETOR] Pure post processing mode...\n");
+	dector_printf("Pure post processing mode...\n");
 	Mat image;
 	Mat rgb_image;
-	Mat dst(height, width, CV_8UC2, frm_data_out, stride);
 	THE_PREDICTED_DATA *predict_data = new THE_PREDICTED_DATA();
 	list<THE_BOX> drawing_box_list;
 
 #if (SIMULATE)
-	image = imread("../src/resource/dog416.jpg",CV_LOAD_IMAGE_COLOR);
+	//image = imread("../src/resource/dog416.jpg",CV_LOAD_IMAGE_COLOR);
+	image = imread("../src/resource/dog.jpg",CV_LOAD_IMAGE_COLOR);
 #else
-	image = imread("/media/card/dog416.jpg",CV_LOAD_IMAGE_COLOR);
+	//image = imread("/media/card/dog416.jpg",CV_LOAD_IMAGE_COLOR);
+	image = imread("../src/resource/dog.jpg",CV_LOAD_IMAGE_COLOR);
 #endif
 	if(! image.data )
     {
-           printf("[OBJ_DECTOR] Could not open or find the image\n");
+           dector_printf("Could not open or find the image\n");
            return -1;
     }
 #if (SIMULATE)
 	post_process(predict_data, drawing_box_list);
+	draw_the_boxes_sim(image, drawing_box_list);
+
 #else
 	cvtColor(image, rgb_image, COLOR_BGR2RGB);
+	Mat dst(height, width, CV_8UC2, frm_data_out, stride);
 	rgb2yuv422(&rgb_image, &dst);
 #endif
 	return 0;
@@ -254,14 +241,86 @@ int object_detection(unsigned short *frm_data_in, unsigned short *frm_data_out,
 		return 0;
 }
 
+static float colors[6][3] = { {1,0,1}, {0,0,1},{0,1,1},{0,1,0},{1,1,0},{1,0,0} };
+char *class_names[20] = {"aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"};
 
-static void rgb2yuyv(Mat rgb_image, Mat yuyv_image)
+
+
+float get_color(int c, int x, int max)
 {
-
-	return;
+    float ratio = ((float)x/max)*5;
+    int i = floor(ratio);
+    int j = ceil(ratio);
+    ratio -= i;
+    float r = (1-ratio) * colors[i][c] + ratio*colors[j][c];
+    return r;
 }
 
 
+static void draw_the_box(Mat &p, THE_BOX &b)
+{
+	int left = (b.x-b.w/2.)*INPUT_RAW_PIXEL;
+	int right = (b.x+b.w/2.)*INPUT_RAW_PIXEL;
+    int top   = (b.y-b.h/2.)*INPUT_COL_PIXEL;
+    int bot   = (b.y+b.h/2.)*INPUT_COL_PIXEL;
+
+    int offset = b.candidate->index *123457 % CLASS_CNT;
+    float red = get_color(2,offset,CLASS_CNT);
+    float green = get_color(1,offset,CLASS_CNT);
+    float blue = get_color(0,offset,CLASS_CNT);
+    float bgr[3];
+
+    bgr[0] = blue * 100;
+    bgr[1] = green * 100;
+    bgr[2] = red * 100;
+
+    dector_printf("color = (%f, %f, %f)\n", bgr[0], bgr[1], bgr[2]);
+	rectangle(p, Point(left,top), Point(right,bot),Scalar(bgr[0],bgr[1],bgr[2]),2,8,0);
+	putText(p, class_names[b.candidate->index], Point(left,top-4),FONT_HERSHEY_DUPLEX,0.7, Scalar(bgr[0],bgr[1],bgr[2]), 2, 2, NULL);
+}
+
+static int draw_the_boxes_sim(Mat &src, list<THE_BOX> &box_list)
+{
+	/*draw the box iteratively*/
+	for(list<THE_BOX>::iterator it = box_list.begin(); it != box_list.end(); ++it)
+	{
+		draw_the_box(src, *it);
+	}
+	namedWindow( "Display Image", CV_WINDOW_AUTOSIZE );
+	imshow( "Display Image", src );
+	waitKey(0);
+	return 0;
+}
+
+
+static int draw_the_boxes(unsigned short *frm_data_in, unsigned short *frm_data_out,
+		 int height, int width, int stride, list<THE_BOX> &box_list)
+{
+
+	assert(frm_data_in  != NULL);
+	assert(frm_data_out != NULL);
+	Mat src(height, width, CV_8UC2, frm_data_in, stride);
+	Mat dst(height, width, CV_8UC2, frm_data_out, stride);
+
+	std::vector<Mat> planes;
+	// get one of RGB plane to draw
+	split(src, planes);
+
+	/*draw the box iteratively*/
+	for(list<THE_BOX>::iterator it = box_list.begin(); it != box_list.end(); ++it)
+	{
+		draw_the_box(planes[0], *it);
+	}
+
+	merge(planes, dst);
+	return 0;
+}
+
+
+
+
+
+#if 0
 static void draw_the_box(unsigned short *frm_data_in, unsigned short *frm_data_out,
 		 int height, int width, int stride)
 {
@@ -273,18 +332,13 @@ static void draw_the_box(unsigned short *frm_data_in, unsigned short *frm_data_o
 	split(src, planes);
 	rectangle(planes[0], Point(400,500), Point(600,600),Scalar(175),2,8,0);
 	merge(planes, dst);
-	//printf("[Lucas] %dX%d drawing complete...\n", height, width);
+	//dector_printf("[Lucas] %dX%d drawing complete...\n", height, width);
 	/* FIXME Need to check why only output half image. and double rectangle
 	 * rectangle(src, Point(0,0), Point(200,100),Scalar(255),2,8,0);
 	 * src.copyTo(dst);
 	 * */
 }
-
-
-
-
-
-
+#endif
 
 static void rgb2yuv422(Mat *src, Mat *dst)
 {

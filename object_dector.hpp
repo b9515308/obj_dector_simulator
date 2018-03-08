@@ -10,8 +10,10 @@
 #define DEMO_MODE	0
 
 #define SIMULATE (1)
-#define INPUT_RAW_PIXEL	(416)
-#define INPUT_COL_PIXEL	(416)
+//#define INPUT_RAW_PIXEL	(416)
+//#define INPUT_COL_PIXEL	(416)
+#define INPUT_RAW_PIXEL	(768)
+#define INPUT_COL_PIXEL	(576)
 #define INPUT_SIZE	(INPUT_RAW_PIXEL*INPUT_COL_PIXEL)
 #define INPUT_RGB_CHANNEL	3
 #define OUTPUT_RAW_PIXEL	INPUT_RAW_PIXEL
@@ -29,6 +31,16 @@
 #define PREDICT_CUBE_CENTER_W_SCALE (1)
 #define PREDICT_CUBE_CENTER_H_SCALE (1)
 #define PREDICT_CUBE_SIZE_SQUARE (1)
+#define DEBUG_PRINT (1)
+#define HEADER "[OBJ_DECTOR]: "
+
+#if (DEBUG_PRINT)
+#define dector_printf(X...) printf(HEADER X)
+#elif
+#define dector_printf(X...)
+#endif
+
+
 typedef struct the_class
 {
 	unsigned int index;

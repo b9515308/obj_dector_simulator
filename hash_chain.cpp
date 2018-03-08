@@ -7,8 +7,7 @@
 #include "hash_chain.hpp"
 #include <stdio.h>
 using namespace std;
-
-
+extern char *class_names[];
 
 
 static float overlap(float x1, float w1, float x2, float w2)
@@ -60,7 +59,7 @@ void hash_chain::insert(THE_BOX *the_box)
 	int index = the_box->candidate->index;
 	list <THE_BOX> *class_list;
 	class_list = &(this->mgr.hash_table[index]);
-#if 0
+#if 1
 	for(list<THE_BOX>::iterator it = class_list->begin(); it != class_list->end(); ++it)
 	{
 		if(box_iou(*the_box, *it) > NRM_THRESH)
@@ -89,13 +88,14 @@ void hash_chain::extract(list<THE_BOX> &out_list)
 		else
 		{
 			 while (!class_ptr->empty())
-			  {
+			 {
 				 THE_BOX &b = class_ptr->front();
-				 printf("prob=%f, class=%s(%d), x=%f,y=%f,w=%f,h=%f\n",
+				 dector_printf("prob=%f, class=%s(%d), x=%f,y=%f,w=%f,h=%f\n",
 						 b.score,
-						 this->class_names[b.candidate->index],
+						 class_names[b.candidate->index],
 						 b.candidate->index,
 						 b.x, b.y, b.w, b.h);
+
 				 out_list.push_front(b);
 				 class_ptr->pop_front();
 			  }

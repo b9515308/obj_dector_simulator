@@ -23,7 +23,6 @@ class hash_chain{
 
 private:
 	CHAIN_MGR mgr;
-	char *class_names[20] = {"aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"};
 
 public:
 	hash_chain(int nrm, int size);
