@@ -72,29 +72,13 @@ static IMAGE_DATA *resized_image_data(IMAGE_DATA *ori_image)
 
 static THE_PREDICTED_DATA *hw_cnn_network(INFER_CONTROLLER *infer)
 {
-	THE_PREDICTED_DATA *data;
-	return data;
-}
 
-static void dump_the_box(THE_BOX &b)
-{
-	dector_printf("score=%f, x=%f, y=%f, w=%f, h=%f\n",
-			b.score,
-			b.x,
-			b.y,
-			b.w,
-			b.h);
-}
 
-static int post_process(THE_PREDICTED_DATA *predict_data, list<THE_BOX> &box_list)
-{
 #if (PURE_POST_PROCESSING)
 	int fd;
 	int nr;
+	THE_PREDICTED_DATA *predict_data = new THE_PREDICTED_DATA();
 #endif
-	int g,b,cl;
-	hash_chain *map = new hash_chain(1,CLASS_CNT);
-
 
 #if (PURE_POST_PROCESSING)
 
@@ -114,6 +98,25 @@ static int post_process(THE_PREDICTED_DATA *predict_data, list<THE_BOX> &box_lis
 	if (nr == -1)
 		dector_printf("predict_cube read error: %s\n", strerror(errno));
 #endif
+
+	return predict_data;
+}
+
+static void dump_the_box(THE_BOX &b)
+{
+	dector_printf("score=%f, x=%f, y=%f, w=%f, h=%f\n",
+			b.score,
+			b.x,
+			b.y,
+			b.w,
+			b.h);
+}
+
+static int post_process(THE_PREDICTED_DATA *predict_data, list<THE_BOX> &box_list)
+{
+
+	int g,b,cl;
+	hash_chain *map = new hash_chain(1,CLASS_CNT);
 
 	for (g = 0; g < PREDICT_NUM_OF_GRIDS; g++)
 	{
@@ -181,11 +184,10 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
 	dector_printf("Pure post processing mode...\n");
 	Mat image;
 	Mat rgb_image;
-	THE_PREDICTED_DATA *predict_data = new THE_PREDICTED_DATA();
+	THE_PREDICTED_DATA *predict_data;
 	list<THE_BOX> drawing_box_list;
 
 #if (SIMULATE)
-	//image = imread("../src/resource/dog416.jpg",CV_LOAD_IMAGE_COLOR);
 	image = imread("../src/resource/dog.jpg",CV_LOAD_IMAGE_COLOR);
 #else
 	//image = imread("/media/card/dog416.jpg",CV_LOAD_IMAGE_COLOR);
@@ -197,6 +199,7 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
            return -1;
     }
 #if (SIMULATE)
+	predict_data = hw_cnn_network(NULL);
 	post_process(predict_data, drawing_box_list);
 	draw_the_boxes_sim(image, drawing_box_list);
 
