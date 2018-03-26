@@ -91,7 +91,7 @@ static THE_PREDICTED_DATA *hw_cnn_network(INFER_CONTROLLER *infer)
 	predict_data->d = PREDICT_CUBE_DEPTH;
 
 #if SIMULATE
-	fd = open("../src/resource/prediction_cube.bin", O_RDONLY, S_IRUSR | S_IWUSR);
+	fd = open("src/resource/prediction_cube.bin", O_RDONLY, S_IRUSR | S_IWUSR);
 #else
 	fd = open("/media/card/prediction_cube.bin", O_RDONLY, S_IRUSR | S_IWUSR);
 #endif
@@ -193,7 +193,7 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
 	list<THE_BOX> drawing_box_list;
 
 #if (SIMULATE)
-	image = imread("../src/resource/dog.jpg",CV_LOAD_IMAGE_COLOR);
+	image = imread("src/resource/dog.jpg",CV_LOAD_IMAGE_COLOR);
 #else
 	//image = imread("/media/card/dog416.jpg",CV_LOAD_IMAGE_COLOR);
 	image = imread("/media/card/dog.jpg",CV_LOAD_IMAGE_COLOR);
