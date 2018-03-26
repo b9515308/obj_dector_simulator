@@ -2,6 +2,7 @@
 #define SRC_SRC_F2D_OBJECT_DECTOR_HPP_
 
 #include <list>
+#include "object_int.h"
 #define RAW_IMAGE_CHANNEL	-1
 #define RAW_IMAGE_SIZE		0
 #define WEIGHT_CNT			-1
@@ -10,10 +11,8 @@
 #define DEMO_MODE	0
 
 #define SIMULATE (1)
-//#define INPUT_RAW_PIXEL	(416)
-//#define INPUT_COL_PIXEL	(416)
-#define INPUT_RAW_PIXEL	(768)
-#define INPUT_COL_PIXEL	(576)
+
+
 #define INPUT_SIZE	(INPUT_RAW_PIXEL*INPUT_COL_PIXEL)
 #define INPUT_RGB_CHANNEL	3
 #define OUTPUT_RAW_PIXEL	INPUT_RAW_PIXEL
@@ -36,7 +35,7 @@
 
 #if (DEBUG_PRINT)
 #define dector_printf(X...) printf(HEADER X)
-#elif
+#else
 #define dector_printf(X...)
 #endif
 

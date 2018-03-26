@@ -31,6 +31,8 @@
 #include <cassert>
 using namespace cv;
 using namespace std;
+static float colors[6][3] = { {1,0,1}, {0,0,1},{0,1,1},{0,1,0},{1,1,0},{1,0,0} };
+char *class_names[20] = {"aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"};
 
 static void rgb2yuv422(Mat *src, Mat *dst);
 
@@ -95,10 +97,13 @@ static THE_PREDICTED_DATA *hw_cnn_network(INFER_CONTROLLER *infer)
 #endif
 
 	nr = read(fd,predict_data->data, PREDICT_CUBE_SIZE);
-	if (nr == -1)
+	if (nr == -1){
 		dector_printf("predict_cube read error: %s\n", strerror(errno));
+		return NULL;
+	}
 #endif
 
+	close(fd);
 	return predict_data;
 }
 
@@ -191,7 +196,7 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
 	image = imread("../src/resource/dog.jpg",CV_LOAD_IMAGE_COLOR);
 #else
 	//image = imread("/media/card/dog416.jpg",CV_LOAD_IMAGE_COLOR);
-	image = imread("../src/resource/dog.jpg",CV_LOAD_IMAGE_COLOR);
+	image = imread("/media/card/dog.jpg",CV_LOAD_IMAGE_COLOR);
 #endif
 	if(! image.data )
     {
@@ -204,10 +209,19 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
 	draw_the_boxes_sim(image, drawing_box_list);
 
 #else
+	predict_data = hw_cnn_network(NULL);
+	if (!predict_data)
+		return 0;
+	post_process(predict_data, drawing_box_list);
+	draw_the_boxes_sim(image, drawing_box_list);
 	cvtColor(image, rgb_image, COLOR_BGR2RGB);
 	Mat dst(height, width, CV_8UC2, frm_data_out, stride);
 	rgb2yuv422(&rgb_image, &dst);
 #endif
+
+	image.release();
+	rgb_image.release();
+
 	return 0;
 }
 
@@ -244,8 +258,6 @@ int object_detection(unsigned short *frm_data_in, unsigned short *frm_data_out,
 		return 0;
 }
 
-static float colors[6][3] = { {1,0,1}, {0,0,1},{0,1,1},{0,1,0},{1,1,0},{1,0,0} };
-char *class_names[20] = {"aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"};
 
 
 
@@ -279,7 +291,7 @@ static void draw_the_box(Mat &p, THE_BOX &b)
 
     dector_printf("color = (%f, %f, %f)\n", bgr[0], bgr[1], bgr[2]);
 	rectangle(p, Point(left,top), Point(right,bot),Scalar(bgr[0],bgr[1],bgr[2]),2,8,0);
-	putText(p, class_names[b.candidate->index], Point(left,top-4),FONT_HERSHEY_DUPLEX,0.7, Scalar(bgr[0],bgr[1],bgr[2]), 2, 2, NULL);
+	putText(p, class_names[b.candidate->index], Point(left,top-4),FONT_HERSHEY_DUPLEX,0.7, Scalar(bgr[0],bgr[1],bgr[2]), 2, 2, false);
 }
 
 static int draw_the_boxes_sim(Mat &src, list<THE_BOX> &box_list)
@@ -289,9 +301,12 @@ static int draw_the_boxes_sim(Mat &src, list<THE_BOX> &box_list)
 	{
 		draw_the_box(src, *it);
 	}
+
+#if (SIMULATE)
 	namedWindow( "Display Image", CV_WINDOW_AUTOSIZE );
 	imshow( "Display Image", src );
 	waitKey(0);
+#endif
 	return 0;
 }
 
@@ -320,28 +335,6 @@ static int draw_the_boxes(unsigned short *frm_data_in, unsigned short *frm_data_
 }
 
 
-
-
-
-#if 0
-static void draw_the_box(unsigned short *frm_data_in, unsigned short *frm_data_out,
-		 int height, int width, int stride)
-{
-	Mat src(height, width, CV_8UC2, frm_data_in, stride);
-	Mat dst(height, width, CV_8UC2, frm_data_out, stride);
-	// planes
-	std::vector<Mat> planes;
-	// filter
-	split(src, planes);
-	rectangle(planes[0], Point(400,500), Point(600,600),Scalar(175),2,8,0);
-	merge(planes, dst);
-	//dector_printf("[Lucas] %dX%d drawing complete...\n", height, width);
-	/* FIXME Need to check why only output half image. and double rectangle
-	 * rectangle(src, Point(0,0), Point(200,100),Scalar(255),2,8,0);
-	 * src.copyTo(dst);
-	 * */
-}
-#endif
 
 static void rgb2yuv422(Mat *src, Mat *dst)
 {
@@ -396,7 +389,7 @@ static void rgb2yuv422(Mat *src, Mat *dst)
 
 	for (n_row = 0; n_row < OUTUT_COL_PIXEL; n_row++)
 	{
-		yuyvBuffer = dst->ptr(OUTPUT_LOCATION_X+n_row, OUTPUT_LOCATION_Y);//(row(h),col(p))
+		yuyvBuffer = dst->ptr(OUTPUT_LOCATION_X+2*n_row, OUTPUT_LOCATION_Y);//(row(h),col(p))
 
 		for(n_col = 0; n_col < OUTPUT_RAW_PIXEL; n_col+=2)
 		{
