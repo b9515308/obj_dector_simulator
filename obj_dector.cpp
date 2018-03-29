@@ -14,11 +14,23 @@
 #include "object_dector.hpp"
 using namespace cv;
 using namespace std;
+#include <yolo_lib.h>
+
 
 int main() {
 	cout << "!!!Hello World!!!" << endl; // prints !!!Hello World!!!
-	object_detection(NULL,NULL,INPUT_COL_PIXEL,INPUT_RAW_PIXEL, NULL);
+	//foo_test_print();
+	//extern char *inputs[50];
+	//run_yolo_call(0.2, inputs[0], inputs[1], inputs[2]);
+#if (PURE_POST_PROCESSING)
+	object_detection(NULL,NULL,INPUT_COL_PIXEL,INPUT_RAW_PIXEL, NULL, PRE_BUILD_CUBE);
 	return 0;
+#endif
+
+#if (YOLO_INFERENCE)
+	object_detection(NULL,NULL,INPUT_COL_PIXEL,INPUT_RAW_PIXEL, NULL, YOLO_SW_INFERENCE);
+	return 0;
+#endif
 }
 
 int sample( int argc, char** argv )

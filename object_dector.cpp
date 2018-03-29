@@ -71,18 +71,12 @@ static IMAGE_DATA *resized_image_data(IMAGE_DATA *ori_image)
 	return new_image;
 }
 
-
-static THE_PREDICTED_DATA *hw_cnn_network(INFER_CONTROLLER *infer)
+static THE_PREDICTED_DATA *pure_post_processing(void)
 {
-
-
-#if (PURE_POST_PROCESSING)
 	int fd;
 	int nr;
 	THE_PREDICTED_DATA *predict_data = new THE_PREDICTED_DATA();
-#endif
 
-#if (PURE_POST_PROCESSING)
 
 	unsigned char *raw_data = new unsigned char[PREDICT_CUBE_SIZE];
 	predict_data->data = (RAW_DATA_LAYOUT *)raw_data;
@@ -101,10 +95,65 @@ static THE_PREDICTED_DATA *hw_cnn_network(INFER_CONTROLLER *infer)
 		dector_printf("predict_cube read error: %s\n", strerror(errno));
 		return NULL;
 	}
-#endif
-
 	close(fd);
 	return predict_data;
+}
+
+static IMAGE_DATA *data2image(unsigned char *f, unsigned w, unsigned h, unsigned c){
+	IMAGE_DATA *image = new IMAGE_DATA;
+	image->data = f;
+	image->height = h;
+	image->width = w;
+	image->channel = c;
+	return image;
+}
+
+static THE_WEIGHT *data2weight(float *w, unsigned len){
+	THE_WEIGHT *weight = new THE_WEIGHT;
+	weight->weight = w;
+	weight->len = len;
+	return weight;
+}
+
+static INFER_CONTROLLER *get_infer_con(IMAGE_DATA *im , THE_WEIGHT *w, INFER_TYPE type)
+{
+	INFER_CONTROLLER *infer = new INFER_CONTROLLER;
+	infer->input = im;
+	infer->type = type;
+	infer->weight= w;
+
+	return infer;
+}
+
+#include <yolo_lib.h>
+char *inputs[50] = {"src/resource/yolo-tiny_v1.cfg", "src/resource/yolo-tiny_v1.weights", "src/resource/dog.jpg"};
+
+static THE_PREDICTED_DATA *YOLO_SW_inference(INFER_CONTROLLER *infer)
+{
+	float *infered_data = yolo_inference(inputs[0], inputs[1], inputs[2],0.2);
+
+	THE_PREDICTED_DATA *predict_data = new THE_PREDICTED_DATA();
+	predict_data->data = (RAW_DATA_LAYOUT *)infered_data;
+	predict_data->w = PREDICT_CUBE_WIDTH;
+	predict_data->h = PREDICT_CUBE_HEIGHT;
+	predict_data->d = PREDICT_CUBE_DEPTH;
+	return predict_data;
+}
+
+
+static THE_PREDICTED_DATA *hw_cnn_network(INFER_CONTROLLER *infer)
+{
+	switch (infer->type)
+	{
+		case PRE_BUILD_CUBE:
+			return pure_post_processing();
+		case YOLO_SW_INFERENCE:
+			return YOLO_SW_inference(infer);
+		default:
+			dector_printf(" unexpected inference type\n");
+			return NULL;
+	}
+
 }
 
 static void dump_the_box(THE_BOX &b)
@@ -181,7 +230,7 @@ static int boxes_projection(list<THE_BOX> &box_list)
 
 
 static int video_mode_processing(unsigned short *frm_data_in, unsigned short *frm_data_out,
-		 int height, int width, int stride)
+		 int height, int width, int stride, INFER_TYPE type )
 {
 
 
@@ -191,6 +240,7 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
 	Mat rgb_image;
 	THE_PREDICTED_DATA *predict_data;
 	list<THE_BOX> drawing_box_list;
+	INFER_CONTROLLER *infer;
 
 #if (SIMULATE)
 	image = imread("src/resource/dog.jpg",CV_LOAD_IMAGE_COLOR);
@@ -203,13 +253,23 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
            dector_printf("Could not open or find the image\n");
            return -1;
     }
+
+/*FIXME eliminate the defines*/
 #if (SIMULATE)
-	predict_data = hw_cnn_network(NULL);
+#if (PURE_POST_PROCESSING)
+	infer = get_infer_con(NULL , NULL , type);
+#else
+	infer = get_infer_con(NULL , NULL , type);
+#endif
+
+	predict_data = hw_cnn_network(infer);
+	if (!predict_data)
+		return 0;
 	post_process(predict_data, drawing_box_list);
 	draw_the_boxes_sim(image, drawing_box_list);
 
 #else
-	predict_data = hw_cnn_network(NULL);
+	predict_data = hw_cnn_network();
 	if (!predict_data)
 		return 0;
 	post_process(predict_data, drawing_box_list);
@@ -226,7 +286,7 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
 }
 
 int object_detection(unsigned short *frm_data_in, unsigned short *frm_data_out,
-		 int height, int width, int stride)
+		 int height, int width, int stride, INFER_TYPE type)
 {
 	unsigned short *tmp;
 	int ret = 0;
@@ -238,7 +298,7 @@ int object_detection(unsigned short *frm_data_in, unsigned short *frm_data_out,
 	INFER_CONTROLLER *infer_controller;
 	THE_PREDICTED_DATA *the_predicted_data;
 
-#if (DEMO_MODE)
+#if (WEBCAM_MODE)
 	ori_image = alloc_image_data(frm_data_in, (width*height), width, height, RAW_IMAGE_CHANNEL);
 	new_image = resized_image_data(ori_image);
 	ret = get_the_weights(weights_list);
@@ -246,8 +306,8 @@ int object_detection(unsigned short *frm_data_in, unsigned short *frm_data_out,
 	the_predicted_data = hw_cnn_network(infer_controller);
 	ret |= post_process(the_predicted_data, drawing_box_list);
 	ret |= boxes_projection(drawing_box_list);
-#elif (PURE_POST_PROCESSING)
-	ret |= video_mode_processing(frm_data_in, frm_data_out, height, width, stride);
+#elif (VIDEO_MODE)
+	ret |= video_mode_processing(frm_data_in, frm_data_out, height, width, stride, type);
 #else
 	ret |= draw_the_boxes(frm_data_in, frm_data_out, height, width, stride, drawing_box_list);
 #endif
