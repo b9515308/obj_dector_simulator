@@ -7,14 +7,13 @@
 #define RAW_IMAGE_SIZE		0
 #define WEIGHT_CNT			-1
 #define CLASS_CNT			20
-#define VIDEO_MODE			1
-#define WEBCAM_MODE	0
 #define SIMULATE (1)
 
 /*Applicatoin layer defines*/
 #define PURE_POST_PROCESSING (0)
 #define YOLO_INFERENCE (1)
-
+#define CFG_FILE "src/resource/yolo-tiny_v1.cfg"
+#define WEIGHT_FILE "src/resource/yolo-tiny_v1.weights"
 
 #define INPUT_SIZE	(INPUT_RAW_PIXEL*INPUT_COL_PIXEL)
 #define INPUT_RGB_CHANNEL	3
@@ -98,6 +97,7 @@ typedef struct image_data
 	unsigned int width;
 	unsigned int height;
 	unsigned int channel;
+	char filename[256];
 }IMAGE_DATA;
 
 

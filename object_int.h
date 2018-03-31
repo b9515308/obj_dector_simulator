@@ -19,7 +19,9 @@ typedef enum
 }INFER_TYPE;
 
 
-int object_detection(unsigned short *frm_data_in, unsigned short *frm_data_out,
+int object_detection_video(unsigned short *frm_data_in, unsigned short *frm_data_out,
+		 int height, int width, int stride, INFER_TYPE type,  char *filename);
+int object_detection_camera(unsigned short *frm_data_in, unsigned short *frm_data_out,
 		 int height, int width, int stride, INFER_TYPE type);
 
 #define INPUT_RAW_PIXEL	(768)

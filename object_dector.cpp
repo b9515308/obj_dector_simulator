@@ -29,6 +29,7 @@
 #include "hash_chain.hpp"
 #include <cmath>
 #include <cassert>
+#include <yolo_lib.h>
 using namespace cv;
 using namespace std;
 static float colors[6][3] = { {1,0,1}, {0,0,1},{0,1,1},{0,1,0},{1,1,0},{1,0,0} };
@@ -99,20 +100,14 @@ static THE_PREDICTED_DATA *pure_post_processing(void)
 	return predict_data;
 }
 
-static IMAGE_DATA *data2image(unsigned char *f, unsigned w, unsigned h, unsigned c){
+static IMAGE_DATA *data2image(unsigned char *f, unsigned w, unsigned h, unsigned c, char *filename){
 	IMAGE_DATA *image = new IMAGE_DATA;
 	image->data = f;
 	image->height = h;
 	image->width = w;
 	image->channel = c;
+	strncpy(image->filename, filename, 256);
 	return image;
-}
-
-static THE_WEIGHT *data2weight(float *w, unsigned len){
-	THE_WEIGHT *weight = new THE_WEIGHT;
-	weight->weight = w;
-	weight->len = len;
-	return weight;
 }
 
 static INFER_CONTROLLER *get_infer_con(IMAGE_DATA *im , THE_WEIGHT *w, INFER_TYPE type)
@@ -125,14 +120,16 @@ static INFER_CONTROLLER *get_infer_con(IMAGE_DATA *im , THE_WEIGHT *w, INFER_TYP
 	return infer;
 }
 
-#include <yolo_lib.h>
-char *inputs[50] = {"src/resource/yolo-tiny_v1.cfg", "src/resource/yolo-tiny_v1.weights", "src/resource/dog.jpg"};
 
 static THE_PREDICTED_DATA *YOLO_SW_inference(INFER_CONTROLLER *infer)
 {
-	float *infered_data = yolo_inference(inputs[0], inputs[1], inputs[2],0.2);
 
+	float *infered_data;
 	THE_PREDICTED_DATA *predict_data = new THE_PREDICTED_DATA();
+//	setup_yolo_env(CFG_FILE, WEIGHT_FILE);
+	set_cur_img_by_name(infer->input->filename);
+	infered_data = yolo_inference(BOX_THRESH);
+
 	predict_data->data = (RAW_DATA_LAYOUT *)infered_data;
 	predict_data->w = PREDICT_CUBE_WIDTH;
 	predict_data->h = PREDICT_CUBE_HEIGHT;
@@ -230,7 +227,7 @@ static int boxes_projection(list<THE_BOX> &box_list)
 
 
 static int video_mode_processing(unsigned short *frm_data_in, unsigned short *frm_data_out,
-		 int height, int width, int stride, INFER_TYPE type )
+		 int height, int width, int stride, INFER_TYPE type, char *filename)
 {
 
 
@@ -243,9 +240,9 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
 	INFER_CONTROLLER *infer;
 
 #if (SIMULATE)
-	image = imread("src/resource/dog.jpg",CV_LOAD_IMAGE_COLOR);
+	image = imread(filename,CV_LOAD_IMAGE_COLOR);
+
 #else
-	//image = imread("/media/card/dog416.jpg",CV_LOAD_IMAGE_COLOR);
 	image = imread("/media/card/dog.jpg",CV_LOAD_IMAGE_COLOR);
 #endif
 	if(! image.data )
@@ -254,14 +251,18 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
            return -1;
     }
 
-/*FIXME eliminate the defines*/
+/*FIXME Make get infer with appropriate way*/
 #if (SIMULATE)
-#if (PURE_POST_PROCESSING)
-	infer = get_infer_con(NULL , NULL , type);
-#else
-	infer = get_infer_con(NULL , NULL , type);
-#endif
 
+	if(type == PRE_BUILD_CUBE)
+	{
+		infer = get_infer_con(NULL , NULL , type);
+	}
+	else
+	{
+		IMAGE_DATA *im = data2image(NULL,0,0,0, filename);
+		infer = get_infer_con(im , NULL , type);
+	}
 	predict_data = hw_cnn_network(infer);
 	if (!predict_data)
 		return 0;
@@ -285,7 +286,8 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
 	return 0;
 }
 
-int object_detection(unsigned short *frm_data_in, unsigned short *frm_data_out,
+
+int object_detection_camera(unsigned short *frm_data_in, unsigned short *frm_data_out,
 		 int height, int width, int stride, INFER_TYPE type)
 {
 	unsigned short *tmp;
@@ -298,7 +300,6 @@ int object_detection(unsigned short *frm_data_in, unsigned short *frm_data_out,
 	INFER_CONTROLLER *infer_controller;
 	THE_PREDICTED_DATA *the_predicted_data;
 
-#if (WEBCAM_MODE)
 	ori_image = alloc_image_data(frm_data_in, (width*height), width, height, RAW_IMAGE_CHANNEL);
 	new_image = resized_image_data(ori_image);
 	ret = get_the_weights(weights_list);
@@ -306,11 +307,19 @@ int object_detection(unsigned short *frm_data_in, unsigned short *frm_data_out,
 	the_predicted_data = hw_cnn_network(infer_controller);
 	ret |= post_process(the_predicted_data, drawing_box_list);
 	ret |= boxes_projection(drawing_box_list);
-#elif (VIDEO_MODE)
-	ret |= video_mode_processing(frm_data_in, frm_data_out, height, width, stride, type);
-#else
-	ret |= draw_the_boxes(frm_data_in, frm_data_out, height, width, stride, drawing_box_list);
-#endif
+
+	if(ret)
+		return -1;
+	else
+		return 0;
+}
+
+int object_detection_video(unsigned short *frm_data_in, unsigned short *frm_data_out,
+		 int height, int width, int stride, INFER_TYPE type, char *filename)
+{
+	int ret = 0;
+
+	ret |= video_mode_processing(frm_data_in, frm_data_out, height, width, stride, type ,filename);
 
 	if(ret)
 		return -1;
