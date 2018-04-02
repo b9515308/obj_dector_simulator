@@ -126,7 +126,6 @@ static THE_PREDICTED_DATA *YOLO_SW_inference(INFER_CONTROLLER *infer)
 
 	float *infered_data;
 	THE_PREDICTED_DATA *predict_data = new THE_PREDICTED_DATA();
-//	setup_yolo_env(CFG_FILE, WEIGHT_FILE);
 	set_cur_img_by_name(infer->input->filename);
 	infered_data = yolo_inference(BOX_THRESH);
 
@@ -232,27 +231,20 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
 
 
 
-	dector_printf("Pure post processing mode...\n");
+	dector_printf("video processing mode...\n");
 	Mat image;
 	Mat rgb_image;
 	THE_PREDICTED_DATA *predict_data;
 	list<THE_BOX> drawing_box_list;
 	INFER_CONTROLLER *infer;
 
-#if (SIMULATE)
 	image = imread(filename,CV_LOAD_IMAGE_COLOR);
 
-#else
-	image = imread("/media/card/dog.jpg",CV_LOAD_IMAGE_COLOR);
-#endif
 	if(! image.data )
     {
            dector_printf("Could not open or find the image\n");
            return -1;
     }
-
-/*FIXME Make get infer with appropriate way*/
-#if (SIMULATE)
 
 	if(type == PRE_BUILD_CUBE)
 	{
@@ -269,20 +261,15 @@ static int video_mode_processing(unsigned short *frm_data_in, unsigned short *fr
 	post_process(predict_data, drawing_box_list);
 	draw_the_boxes_sim(image, drawing_box_list);
 
-#else
-	predict_data = hw_cnn_network();
-	if (!predict_data)
-		return 0;
-	post_process(predict_data, drawing_box_list);
-	draw_the_boxes_sim(image, drawing_box_list);
+
+/*On ZCU102 platform, We need to convert image to YUYV for monitor */
+#if (!SIMULATE)
 	cvtColor(image, rgb_image, COLOR_BGR2RGB);
 	Mat dst(height, width, CV_8UC2, frm_data_out, stride);
 	rgb2yuv422(&rgb_image, &dst);
-#endif
-
 	image.release();
 	rgb_image.release();
-
+#endif
 	return 0;
 }
 
